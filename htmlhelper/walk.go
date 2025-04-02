@@ -4,6 +4,12 @@ import (
     "golang.org/x/net/html"
     "strings"
 )
+
+type WalkEvent int
+const (
+    WalkEnter WalkEvent = iota
+    WalkExit
+)
     
 func WalkHtmlDoc(doc *html.Node, cb func(*NodeWrapper, WalkEvent) bool) {
     var f func(n *html.Node)
@@ -17,6 +23,8 @@ func WalkHtmlDoc(doc *html.Node, cb func(*NodeWrapper, WalkEvent) bool) {
             for _, attr := range n.Attr {
                 if attr.Key == "class" {
                     wrappedNode.Classes = strings.Fields(attr.Val)
+                } else if attr.Key == "id" {
+                    wrappedNode.ID = attr.Val
                 }
             }
             cont := cb(&wrappedNode, WalkEnter)

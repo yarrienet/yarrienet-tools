@@ -21,12 +21,7 @@ func MakeDateNode(datetime time.Time) html.Node {
 type NodeWrapper struct {
     Node *html.Node
     Type string
+    ID string
     Classes []string    
 }
-
-type WalkEvent int
-const (
-    WalkEnter WalkEvent = iota
-    WalkExit
-)
 
