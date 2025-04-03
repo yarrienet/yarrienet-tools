@@ -25,3 +25,12 @@ type NodeWrapper struct {
     Classes []string    
 }
 
+func GetNodeAttr(node *html.Node, a string) string {
+    for _, attr := range node.Attr {
+        if attr.Key == a {
+            return attr.Val
+        }
+    }
+    return ""
+}
+

@@ -10,7 +10,7 @@ Most of the tools are specialized and built to complete a highly specific task, 
 
 #### `insertdates.go`
 
-The tool uses the microblog's RSS feed to extract the date of each post and then insert said date semantically into the HTML tree. Created in order to migrate from using a static site generator backed by a database to a semantically storing data within the page's source.
+The tool uses the microblog's RSS feed to extract the date of each post and then insert said date semantically into the HTML tree. Created in order to migrate from using a static site generator backed by a database to a semantically storing data within the page's source. Requires the microblog's HTML and RSS files.
 
 ```sh
 insertdates <microblog file> <rss file> [output]
