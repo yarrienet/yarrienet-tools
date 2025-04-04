@@ -21,7 +21,7 @@ func insertDateNodes(doc *html.Node, dates map[string]time.Time) *html.Node {
     // don't add another
     var existingTimeElement = false
     htmlhelper.WalkHtmlDoc(doc, func(wrappedNode *htmlhelper.NodeWrapper, event htmlhelper.WalkEvent) bool {
-        if wrappedNode.Type == "div" {
+        if wrappedNode.ElementType == "div" {
             if slices.Contains(wrappedNode.Classes, "post") {
                 if event == htmlhelper.WalkEnter {
                     // entering a new post
@@ -41,9 +41,9 @@ func insertDateNodes(doc *html.Node, dates map[string]time.Time) *html.Node {
         }
 
         if postId != "" && nestedInDateDiv && event == htmlhelper.WalkEnter {
-            if wrappedNode.Type == "time" {
+            if wrappedNode.ElementType == "time" {
                 existingTimeElement = true
-            } else if wrappedNode.Type == "p" && !existingTimeElement {
+            } else if wrappedNode.ElementType == "p" && !existingTimeElement {
                 // get the date
                 postDate, exists := dates[postId]
                 if !exists {
