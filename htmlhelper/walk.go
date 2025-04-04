@@ -15,7 +15,6 @@ func WalkHtmlDoc(doc *html.Node, cb func(*NodeWrapper, WalkEvent) bool) {
     var f func(n *html.Node)
     f = func(n *html.Node) {
         var wrappedNode *NodeWrapper
-        // TODO: distingish between element nodes and text nodes
         wrappedNode = &NodeWrapper{
             Node: n,
         }

@@ -3,13 +3,21 @@ package main
 import (
     "yarrienet/microblog"
     "yarrienet/htmlhelper"
+    "yarrienet/rsshelper"
     "golang.org/x/net/html"
+    h "html"
     "fmt"
     "os"
     "strings"
     "slices"
     "time"
+    "encoding/xml"
 )
+
+var title = "yarrie"
+var author = "yarrie"
+var description = "yarrie's microblog"
+var baseUrl = "http://yarrie.net/microblog"
 
 func getNodeClasses(n *html.Node) []string {
     return strings.Fields(htmlhelper.GetNodeAttr(n, "class"))
@@ -64,6 +72,32 @@ func parseMicroblog(doc *html.Node) []microblog.Post {
     return posts
 }
 
+func postToRssItem(post microblog.Post) (*rsshelper.Item, error) {
+    var b strings.Builder
+    for _, node := range post.Nodes {
+        if node.Type != html.ElementNode {
+            continue
+        }
+        err := html.Render(&b, node)
+        // render nodes
+        if err != nil {
+            return nil, err
+        }
+    }
+    rendered := b.String()
+    description := h.EscapeString(rendered)
+
+    // assemble item
+    link := fmt.Sprintf("%s#%s", baseUrl, post.ID)
+    return &rsshelper.Item{
+        ID: link,
+        Author: author,
+        Link: link,
+        Description: description,
+        PubDate: post.DatePosted,
+    }, nil
+}
+
 func main() {
     f, err := os.Open("microblog-fix.html")
     if err != nil {
@@ -77,11 +111,28 @@ func main() {
     }
 
     posts := parseMicroblog(doc)
+    var items []rsshelper.Item
     for _, post := range posts {
-        fmt.Printf("%s - %s\n", post.ID, post.DatePosted.Format(time.RFC3339))
-        for _, node := range post.Nodes {
-            fmt.Printf("  %s\n", node.Data)
-        } 
+        item, err := postToRssItem(post)
+        if err != nil {
+            panic(err)
+        }
+        items = append(items, *item)
     }
+
+    rssData := rsshelper.RSS{
+        Version: "2.0",
+        Channel: rsshelper.Channel{
+            Title: title,
+            Link: baseUrl,
+            Description: description,
+            Items: items,
+        },
+    }
+    data, err := xml.MarshalIndent(rssData, "", "    ")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(string(data))
 }
 
