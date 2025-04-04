@@ -14,12 +14,13 @@ const (
 func WalkHtmlDoc(doc *html.Node, cb func(*NodeWrapper, WalkEvent) bool) {
     var f func(n *html.Node)
     f = func(n *html.Node) {
-        var wrappedNode NodeWrapper
+        var wrappedNode *NodeWrapper
+        // TODO: distingish between element nodes and text nodes
+        wrappedNode = &NodeWrapper{
+            Node: n,
+        }
         if n.Type == html.ElementNode {
-            wrappedNode = NodeWrapper{
-                Node: n,
-                Type: n.Data,
-            }
+            wrappedNode.ElementType = n.Data
             for _, attr := range n.Attr {
                 if attr.Key == "class" {
                     wrappedNode.Classes = strings.Fields(attr.Val)
@@ -27,13 +28,14 @@ func WalkHtmlDoc(doc *html.Node, cb func(*NodeWrapper, WalkEvent) bool) {
                     wrappedNode.ID = attr.Val
                 }
             }
-            cont := cb(&wrappedNode, WalkEnter)
-            if (!cont) { return }
         }
+        cont := cb(wrappedNode, WalkEnter)
+        if (!cont) { return }
+
         for c := n.FirstChild; c != nil; c = c.NextSibling {
             f(c)
         }
-        cb(&wrappedNode, WalkExit)
+        cb(wrappedNode, WalkExit)
     }
     f(doc)
 }

@@ -19,10 +19,10 @@ func MakeDateNode(datetime time.Time) html.Node {
 // NodeWrapper is a helper struct that wraps an html.Node and provides
 // convenience fields such as the node type and associated classes.
 type NodeWrapper struct {
-    Node *html.Node
-    Type string
-    ID string
-    Classes []string    
+    Node *html.Node // Node being wrapped.
+    ElementType string // Only applicable for element nodes.
+    ID string // ID attribute of element nodes.
+    Classes []string // Classes attribute of element nodes.
 }
 
 func GetNodeAttr(node *html.Node, a string) string {
