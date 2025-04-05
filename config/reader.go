@@ -63,6 +63,8 @@ func updateConfig(config *Config, key string, value string) error {
         } else {
             return fmt.Errorf("not expecting string")
         }
+    default:
+        fmt.Errorf("invalid key")
     }
     return nil
 }
@@ -74,6 +76,7 @@ func ReadFile(f *os.File) (*Config, error) {
     
     var key string
     var value string
+    var lineComment = false
 
     state := ReadStateKey
     var sb strings.Builder
@@ -86,17 +89,27 @@ func ReadFile(f *os.File) (*Config, error) {
             return nil, err
         }
 
+        if r == '#' && sb.Len() == 0 {
+            lineComment = true
+            continue
+        } else if r == '\n' && lineComment {
+            lineComment = false
+            continue
+        } else if lineComment {
+            continue
+        }
+
         switch state {
         case ReadStateKey:
-            if r == ' ' {
-                key = sb.String()
-                state = ReadStateValue
-                sb.Reset()
-            } else if r == '\n' {
+            if r == '\n' {
                 if sb.Len() != 0 {
                     err = fmt.Errorf("expected value after key")
                     return nil, err
                 }
+            } else if r == ' ' {
+                key = sb.String()
+                state = ReadStateValue
+                sb.Reset()
             } else {
                 sb.WriteRune(r) 
             }
@@ -112,7 +125,6 @@ func ReadFile(f *os.File) (*Config, error) {
             } 
         }
     }
-    // result := sb.String()
     return config, nil
 }
 
