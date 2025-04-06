@@ -16,7 +16,7 @@ func printUsage() {
     fmt.Println("  microblog new <microblog file> [output file] [--date <rfc3339>]")
     fmt.Println("    Insert an empty post into the microblog HTML source code.")
     fmt.Println("")
-    fmt.Println("  microblog genrss <microblog file> [output file] [--url <base url>")
+    fmt.Println("  microblog genrss <microblog file> [output file] [--url <base url>]")
     fmt.Println("    Generate an RSS feed using the microblog file.")
 }
 

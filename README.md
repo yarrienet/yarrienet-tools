@@ -23,7 +23,7 @@ Usage: `yarrienet [command] [subcommand]`
 
 ## Configuration
 
-A optional configuration file can be placed in `~/.config/yarrienet.conf` to replace arguments used repeatedly across commands.
+An optional configuration file can be placed in `~/.config/yarrienet.conf` to replace arguments used repeatedly across commands.
 
 ```
 # path of the microblog html file
