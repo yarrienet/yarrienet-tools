@@ -7,6 +7,7 @@ import (
     "golang.org/x/net/html"
     "os"
     "time"
+    "strings"
 )
 const postTemplate = `<div class="post" id="%[1]s">
     <div class="date">
@@ -25,14 +26,33 @@ func generatePost(id string, time time.Time) string {
     return fmt.Sprintf(postTemplate, id, "iso8601time", "formattedtime")
 }
 
-func NewPost(doc *html.Node) {
+func NewPost(doc *html.Node) error {
+    var err error = nil
     htmlhelper.WalkHtmlDoc(doc, func (wn *htmlhelper.NodeWrapper, e htmlhelper.WalkEvent) bool {
+        // if err is present from a previous loop frame then exit
+        if err != nil {
+            return false
+        }
         if e != htmlhelper.WalkEnter || wn.ID != "posts" {
             return true
         }
-        fmt.Println(generatePost("exampleid", time.Now()))
+        postStr := generatePost("exampleid", time.Now())
+
+        fragment, err := html.ParseFragment(strings.NewReader(postStr), wn.Node)
+        if err != nil {
+            return false
+        }
+        for _, n := range fragment {
+            // TODO should insert at the first TextElement?
+            wn.Node.InsertBefore(n, wn.Node.FirstChild)
+        }
+
         return false
     })
+    if err != nil {
+        return err
+    }
+    return nil
 }
 
 
@@ -49,5 +69,12 @@ func main() {
     }
 
     NewPost(doc)
+
+    var b strings.Builder
+    err = html.Render(&b, doc)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(b.String())
 }
 
