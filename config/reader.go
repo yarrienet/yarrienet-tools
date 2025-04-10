@@ -17,6 +17,7 @@ const (
 
 type Config struct {
     MicroblogHtmlFile string 
+    MicroblogRssFile string
 }
 
 func parseValue(s string) (interface{}, error) {
@@ -60,6 +61,12 @@ func updateConfig(config *Config, key string, value string) error {
     case "microblog_html_file":
         if s, ok := parsedValue.(string); ok {
             config.MicroblogHtmlFile = s
+        } else {
+            return fmt.Errorf("not expecting string")
+        }
+    case "microblog_rss_file":
+        if s, ok := parsedValue.(string); ok {
+            config.MicroblogRssFile = s
         } else {
             return fmt.Errorf("not expecting string")
         }

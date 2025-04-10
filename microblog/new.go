@@ -1,5 +1,4 @@
-package main
-// package microblog
+package microblog
 
 import (
     "fmt"
@@ -37,7 +36,7 @@ func generatePost(id string, datetime time.Time) string {
     return fmt.Sprintf(postTemplate, id, datetimeStr, formattedStr)
 }
 
-func NewPost(doc *html.Node) error {
+func InsertNewPost(doc *html.Node, datetime time.Time) error {
     var err error = nil
     htmlhelper.WalkHtmlDoc(doc, func (wn *htmlhelper.NodeWrapper, e htmlhelper.WalkEvent) bool {
         // if err is present from a previous loop frame then exit
@@ -50,7 +49,7 @@ func NewPost(doc *html.Node) error {
         // have found the posts div
         var postsDiv *html.Node = wn.Node
 
-        postStr := generatePost("exampleid", time.Now())
+        postStr := generatePost("exampleid", datetime)
 
         fragment, err := html.ParseFragment(strings.NewReader(postStr), postsDiv)
         if err != nil {
@@ -68,26 +67,25 @@ func NewPost(doc *html.Node) error {
     return nil
 }
 
-
-func main() {
-    f, err := os.Open("microblog-fix.html")
-    if err != nil {
-        panic(err)
-    }
-    defer f.Close()
-
+// The function inserts an empty post element as the first child in #posts.
+// Expects a file descriptor that can read and write to a file. WARNING:
+// will truncate all contents of the file with the newly rendered document.
+func InsertNewPostFile(f *os.File, datetime time.Time) error {
     doc, err := html.Parse(f)
     if err != nil {
-        panic(err)
+        return err
     }
-
-    NewPost(doc)
-
-    var b strings.Builder
-    err = html.Render(&b, doc)
+    err = InsertNewPost(doc, datetime)
     if err != nil {
-        panic(err)
+        return err
     }
-    fmt.Println(b.String())
+    
+    f.Truncate(0)
+    f.Seek(0, 0)
+    err = html.Render(f, doc)
+    if err != nil {
+        return err
+    }
+    return nil
 }
 
