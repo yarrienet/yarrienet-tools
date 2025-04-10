@@ -62,9 +62,9 @@ func insertDateNodes(doc *html.Node, dates map[string]time.Time) *html.Node {
                 dateNode.AppendChild(node)
                 
                 if node.NextSibling != nil {
-                    nodeParent.InsertBefore(&dateNode, node.NextSibling)
+                    nodeParent.InsertBefore(dateNode, node.NextSibling)
                 } else {
-                    nodeParent.AppendChild(&dateNode)
+                    nodeParent.AppendChild(dateNode)
                 }
             }
         }

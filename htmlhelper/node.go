@@ -5,9 +5,9 @@ import (
     "time"
 )
 
-func MakeDateNode(datetime time.Time) html.Node {
+func MakeDateNode(datetime time.Time) *html.Node {
     formattedTime := datetime.Format(time.RFC3339)
-    return html.Node{
+    return &html.Node{
         Type: html.ElementNode,
         Data: "time",
         Attr: []html.Attribute{

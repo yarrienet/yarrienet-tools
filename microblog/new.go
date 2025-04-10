@@ -8,22 +8,33 @@ import (
     "os"
     "time"
     "strings"
+    "slices"
 )
-const postTemplate = `<div class="post" id="%[1]s">
-    <div class="date">
-        <a href="#%[1]s" class="post-link"><time datetime="%[2]s"><p>%[3]s</p></time></a>
-    </div>
-    <p></p>
-</div>`
 
 // %[1]s post id
 // %[2]s iso 8601 datetime (?)
 // %[3]s formatted time
-func generatePost(id string, time time.Time) string {
+// spacing is important and dependant on correct indentation on insertion
+const postTemplate = `
+        <div class="post" id="%[1]s">
+            <div class="date">
+                <a href="#%[1]s" class="post-link"><time datetime="%[2]s"><p>%[3]s</p></time></a>
+            </div>
+            <p></p>
+        </div>
+`
+
+var formattedMonths = []string{
+    "jan", "feb", "march", "april", "may", "june", "july", "aug", "sept", "oct", "nov", "dec",
+}
+
+func generatePost(id string, datetime time.Time) string {
     // Post.ID string
     // Post.DatePosted time.Time
-    // Nodes []*html.Node    
-    return fmt.Sprintf(postTemplate, id, "iso8601time", "formattedtime")
+    // Nodes []*html.Node
+    datetimeStr := datetime.Format(time.RFC3339)
+    formattedStr := fmt.Sprintf("%s %d, %d", formattedMonths[datetime.Month()-1], datetime.Day(), datetime.Year())
+    return fmt.Sprintf(postTemplate, id, datetimeStr, formattedStr)
 }
 
 func NewPost(doc *html.Node) error {
@@ -36,15 +47,17 @@ func NewPost(doc *html.Node) error {
         if e != htmlhelper.WalkEnter || wn.ID != "posts" {
             return true
         }
+        // have found the posts div
+        var postsDiv *html.Node = wn.Node
+
         postStr := generatePost("exampleid", time.Now())
 
-        fragment, err := html.ParseFragment(strings.NewReader(postStr), wn.Node)
+        fragment, err := html.ParseFragment(strings.NewReader(postStr), postsDiv)
         if err != nil {
             return false
         }
-        for _, n := range fragment {
-            // TODO should insert at the first TextElement?
-            wn.Node.InsertBefore(n, wn.Node.FirstChild)
+        for _, n := range slices.Backward(fragment) {
+            postsDiv.InsertBefore(n, wn.Node.FirstChild)
         }
 
         return false
