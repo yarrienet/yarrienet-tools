@@ -33,16 +33,16 @@ func printUsage() {
 }
 
 //
-// TODO fix all os.Exit calls clashing with file.Close() defers
+// TODO support - for stdin not just stdout
 //
 
-func cmdMicroblogNew() {
+// Returns the status of the command.
+func cmdMicroblogNew() int {
     // check if extra arguments were provided, and error
     // TODO should extraneous flags be treated in a similar way?
     if len(c.Extras) > 1 {
         fmt.Fprintf(os.Stderr, "[error] unrecognized arguments provided\n")
-        os.Exit(1)
-        return
+        return 1
     }
     var htmlPath string
     if conf != nil {
@@ -52,16 +52,14 @@ func cmdMicroblogNew() {
         htmlPath = c.Extras[0]
     } else if htmlPath == "" {
         fmt.Fprintf(os.Stderr, "[error] missing html path\n")
-        os.Exit(1)
-        return
+        return 1
     }
     htmlPath = resolvePath(htmlPath)
 
     f, err := os.OpenFile(htmlPath, os.O_RDWR, 0644)
     if err != nil {
         fmt.Fprintf(os.Stderr, "[error] failed to open html file: %s\n", htmlPath)
-        os.Exit(1)
-        return
+        return 1
     }
     defer f.Close()
 
@@ -77,30 +75,26 @@ func cmdMicroblogNew() {
         datetime, err = time.Parse("2006-01-02-15:04:05", datetimeStr)
         if err != nil {
             fmt.Fprintf(os.Stderr, "[error] invalid date provided: %s\n", err)
-            os.Exit(1)
-            return
+            return 1
         }
     } else {
         datetime = time.Now()
     }
     datetime = datetime.In(time.Local)
 
-    // TODO parse the date flag
     err = microblog.InsertNewPostFile(f, datetime)
     if err != nil {
         fmt.Fprintf(os.Stderr, "[error] failed to insert new post: %s\n", err)
-        os.Exit(1)
-        return
+        return 1
     }
-    // done
+    return 0
 }
 
-// microblog genrss <microblog file> [output file] [--url <base url>]
-func cmdMicroblogGenrss() {
+// Returns the command status.
+func cmdMicroblogGenrss() int {
     if len(c.Extras) > 2 {
         fmt.Fprintf(os.Stderr, "[error] unrecognized arguments provided\n")
-        os.Exit(1)
-        return
+        return 1
     }
 
     // use the config paths provided
@@ -116,8 +110,7 @@ func cmdMicroblogGenrss() {
         htmlPath = c.Extras[0]
     } else if htmlPath == "" {
         fmt.Fprintf(os.Stderr, "[error] missing microblog html file\n")
-        os.Exit(1)
-        return
+        return 1
     }
     htmlPath = resolvePath(htmlPath)
 
@@ -134,40 +127,36 @@ func cmdMicroblogGenrss() {
     f, err := os.Open(htmlPath)
     if err != nil {
         fmt.Fprintf(os.Stderr, "[error] failed to open microblog file: %s\n", err)
-        os.Exit(1)
-        return
+        return 1
     }
+    defer f.Close()
 
     // generate the final rss
     s, err := microblog.GenRssFromFile(f)
     if err != nil {
         fmt.Fprintf(os.Stderr, "[error] failed to generate rss: %s\n", err)
-        os.Exit(1)
-        return
+        return 1
     }
-    f.Close()
 
     if outputPath == "" {
         // if no output file provided then output to cli
         fmt.Println(s)
-        return
+        return 0
     }
 
     outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
     if err != nil {
-        fmt.Fprintf(os.Stderr, "[error] failed to open output file: %s\n")
-        os.Exit(1)
-        return
+        fmt.Fprintf(os.Stderr, "[error] failed to open output file: %s\n", err)
+        return 1
     }
     defer outputFile.Close()
 
     _, err = outputFile.WriteString(s)
     if err != nil {
-        fmt.Fprintf(os.Stderr, "[error] failed to write generated rss to output file: %s\n")
-        os.Exit(1)
-        return
+        fmt.Fprintf(os.Stderr, "[error] failed to write generated rss to output file: %s\n", err)
+        return 1
     }
-    // done
+    return 0
 }
 
 func resolvePath(path string) string {
@@ -176,8 +165,7 @@ func resolvePath(path string) string {
         if err != nil {
             return path
         }
-        path := filepath.Join(home, path[1:])
-        return path
+        return filepath.Join(home, path[1:])
     }
     return path
 }
@@ -235,14 +223,18 @@ func main() {
         }
         switch c.Subcommand {
             case "new":
-               cmdMicroblogNew() 
+                s := cmdMicroblogNew() 
+                os.Exit(s)
             case "genrss":
-                cmdMicroblogGenrss()
+                s := cmdMicroblogGenrss()
+                os.Exit(s)
             default:
                 fmt.Fprintf(os.Stderr, "[error] unknown microblog subcommand '%s'\n", c.Subcommand)
+                os.Exit(1)
         }
     default:
         fmt.Fprintf(os.Stderr, "[error] unknown command '%s'\n", c.Command)
+        os.Exit(1)
     }
 }
 
