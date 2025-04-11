@@ -12,23 +12,29 @@ import (
 
 const defaultConfigPath = "~/.config/yarrienet.conf"
 
+const usageInformation string = `USAGE
+  yarrienet [command] [subcommand]
+
+DESCRIPTION
+  Tool
+
+COMMANDS
+  microblog new <microblog file> [-d / --date <yyyy-mm-ddThh-mm-ss>]
+    Insert an empty post into the microblog HTML source code in place.
+
+  microblog genrss <microblog file> <rss file> [output file] [--url <base url>]
+    Generate an RSS feed using the microblog file.
+
+  help
+    Print usage information.`
+
 func printUsage() {
-    fmt.Println("USAGE")
-    fmt.Println("  yarrienet [command] [subcommand]")
-    fmt.Println("")
-    fmt.Println("DESCRIPTION")
-    fmt.Println("  Tool")
-    fmt.Println("")
-    fmt.Println("COMMANDS")
-    fmt.Println("  microblog new <microblog file> [-d / --date <yyyy-mm-ddThh-mm-ss>]")
-    fmt.Println("    Insert an empty post into the microblog HTML source code in place.")
-    fmt.Println("")
-    fmt.Println("  microblog genrss <microblog file> <rss file> [output file] [--url <base url>]")
-    fmt.Println("    Generate an RSS feed using the microblog file.")
-    fmt.Println("")
-    fmt.Println("  help")
-    fmt.Println("    Print usage information.")
+    fmt.Println(usageInformation)
 }
+
+//
+// TODO fix all os.Exit calls clashing with file.Close() defers
+//
 
 func cmdMicroblogNew() {
     // check if extra arguments were provided, and error
@@ -89,8 +95,79 @@ func cmdMicroblogNew() {
     // done
 }
 
+// microblog genrss <microblog file> [output file] [--url <base url>]
 func cmdMicroblogGenrss() {
-    fmt.Println("cmd: microblog genrss")
+    if len(c.Extras) > 2 {
+        fmt.Fprintf(os.Stderr, "[error] unrecognized arguments provided\n")
+        os.Exit(1)
+        return
+    }
+
+    // use the config paths provided
+    var htmlPath string
+    var outputPath string
+    if conf != nil {
+        htmlPath = conf.MicroblogHtmlFile
+        outputPath = conf.MicroblogRssFile
+    }
+
+    // override the config paths with provided arguments
+    if len(c.Extras) >= 1 {
+        htmlPath = c.Extras[0]
+    } else if htmlPath == "" {
+        fmt.Fprintf(os.Stderr, "[error] missing microblog html file\n")
+        os.Exit(1)
+        return
+    }
+    htmlPath = resolvePath(htmlPath)
+
+    if len(c.Extras) == 2 {
+        outputPath = c.Extras[1]
+    }
+    outputPath = resolvePath(outputPath)
+    // - signifies stdout
+    if outputPath == "-" {
+        outputPath = ""
+    }
+
+    // open the html file
+    f, err := os.Open(htmlPath)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "[error] failed to open microblog file: %s\n", err)
+        os.Exit(1)
+        return
+    }
+
+    // generate the final rss
+    s, err := microblog.GenRssFromFile(f)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "[error] failed to generate rss: %s\n", err)
+        os.Exit(1)
+        return
+    }
+    f.Close()
+
+    if outputPath == "" {
+        // if no output file provided then output to cli
+        fmt.Println(s)
+        return
+    }
+
+    outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "[error] failed to open output file: %s\n")
+        os.Exit(1)
+        return
+    }
+    defer outputFile.Close()
+
+    _, err = outputFile.WriteString(s)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "[error] failed to write generated rss to output file: %s\n")
+        os.Exit(1)
+        return
+    }
+    // done
 }
 
 func resolvePath(path string) string {
@@ -114,7 +191,7 @@ func main() {
         fmt.Fprintf(os.Stderr, "[error] failed to parse command line arguments\n")
         return
     }
-    if c.Command == "" {
+    if c.Command == "" || c.Command == "help" {
         printUsage()
         return
     }
@@ -147,7 +224,6 @@ func main() {
             os.Exit(1)
             return
         }
-        fmt.Println("[debug] success opened config file")
         configFile.Close() 
     }
 
@@ -165,8 +241,6 @@ func main() {
             default:
                 fmt.Fprintf(os.Stderr, "[error] unknown microblog subcommand '%s'\n", c.Subcommand)
         }
-    case "help":
-        printUsage()
     default:
         fmt.Fprintf(os.Stderr, "[error] unknown command '%s'\n", c.Command)
     }

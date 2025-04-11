@@ -20,8 +20,8 @@ func Parse() *CLI {
 
     for i := 1; i < len(os.Args); i++ {
         a := os.Args[i]
-        if a[0] == '-' {
-            if a[1] == '-' {
+        if a[0] == '-' && len(a) > 1 {
+            if a[1] == '-' && len(a) > 2 {
                 flagAwaitingValue = a[2:]
             } else {
                 flagAwaitingValue = a[1:]
