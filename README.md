@@ -4,9 +4,29 @@ Repository containing tools used to maintain [yarrie.net](http://yarrie.net).
 
 ## Semantic Publishing
 
-These tools were built to achieve semantic publishing where writing occurs directly in the webpage's HTML source and then all auto-generated elements are built against that. My microblog is a single webpage containing each post and only that is used to produce the RSS feed, there is no abstract file tree or database backing.
+These tools are built to achieve semantic publishing where writing occurs directly in the webpage's HTML source and then all auto-generated elements are built against that. In practice a single webpage containing each post can be used to produce the associated RSS feed without the backing of an abstract file tree or database.
 
-I no longer have to abstract my HTML for working RSS.
+HTML does not need to be abstracted to produce working RSS unlike other static site generators.
+
+The tool relies heavily on a set schema utilizing semantic elements and as such tools are included to insert the HTML source of schema friendly elements directly into the webpage to be modified.
+
+### Microblog
+
+For example, each post on the [yarrie.net microblog](http://yarrie.net/microblog) uses the following schema:
+
+```html
+<div id="posts">
+    <div class="post" id="exampleid">
+        <div class="date">
+            <a href="#exampleid" class="post-link"><time datetime="2025-04-10T17:38:10+01:00"><p>april 10, 2025</p></time></a>
+        </div>
+        <p></p>
+    </div>
+    <!--- ... -->
+</div>
+```
+
+Using the ID from the post, date from the `<time datetime>` and remaining content after the date, the tool is able to determine and produce all necessary information for a valid RSS entry.
 
 ## Usage
 
@@ -25,6 +45,7 @@ An optional configuration file can be placed in `~/.config/yarrienet.conf` to re
 ```
 # path of the microblog html file
 microblog_html_file "~/Documents/yarrie.net/microblog/index.html"
+# path of the microblog rss file
 microblog_rss_file "~/Documents/yarrie.net/microblog/rss.xml"
 ```
 
