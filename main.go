@@ -34,17 +34,25 @@ func printUsage() {
 
 //
 // TODO support - for stdin not just stdout
+// TODO should extraneous flags error like extras?
+// TODO update printUsage to mention -c config flag
+// TODO Update DESCRIPTION in printUsage
+// TODO finishing commenting other packages
 //
 
-// Returns the status of the command.
+// Microblog new item command. Insert the source code of a new microblog item
+// at the top of the microblog HTML page. Will parse additional CLI flags
+// and extras as part of the command. Returns a status code, success is 0.
 func cmdMicroblogNew() int {
     // check if extra arguments were provided, and error
-    // TODO should extraneous flags be treated in a similar way?
     if len(c.Extras) > 1 {
         fmt.Fprintf(os.Stderr, "[error] unrecognized arguments provided\n")
         return 1
     }
+    // determine html path using one defined in config file or extra flag
+    // extra flag should supersede config file entry
     var htmlPath string
+    // config file is already parsed
     if conf != nil {
         htmlPath = conf.MicroblogHtmlFile
     }
@@ -56,6 +64,7 @@ func cmdMicroblogNew() int {
     }
     htmlPath = resolvePath(htmlPath)
 
+    // open file for writing
     f, err := os.OpenFile(htmlPath, os.O_RDWR, 0644)
     if err != nil {
         fmt.Fprintf(os.Stderr, "[error] failed to open html file: %s\n", htmlPath)
@@ -66,21 +75,27 @@ func cmdMicroblogNew() int {
     // format datetime (if present)
     var datetime time.Time
     var datetimeStr string
+    // parse date defined in -d or --date
     if v, ok := c.Flags["d"]; ok {
         datetimeStr = v    
     } else if v, ok := c.Flags["date"]; ok {
         datetimeStr = v    
     }
     if datetimeStr != "" {
-        datetime, err = time.Parse("2006-01-02-15:04:05", datetimeStr)
+        // YYYY-MM-DD-hh-mm-ss datetime, err = time.Parse("2006-01-02-15:04:05", datetimeStr)
         if err != nil {
             fmt.Fprintf(os.Stderr, "[error] invalid date provided: %s\n", err)
             return 1
         }
     } else {
+        // if date not provided then use current
         datetime = time.Now()
     }
-    datetime = datetime.In(time.Local)
+    // when parsing the date convert to current timezone to achieve +0100
+    // in <time datetime> -- though this does not work? time.Now() does this
+    // automatically
+    //
+    // datetime = datetime.In(time.Local)
 
     err = microblog.InsertNewPostFile(f, datetime)
     if err != nil {
@@ -90,8 +105,12 @@ func cmdMicroblogNew() int {
     return 0
 }
 
-// Returns the command status.
+// Microblog generate RSS feed command. Using a provided microblog HTML file,
+// generate an RSS feed from the semantic elements of each post and write to a
+// file or stdout. Will parse additional CLI flags and extras as part of the
+// command. Returns a status code, success is 0.
 func cmdMicroblogGenrss() int {
+    // check for extraneous extras
     if len(c.Extras) > 2 {
         fmt.Fprintf(os.Stderr, "[error] unrecognized arguments provided\n")
         return 1
@@ -105,21 +124,28 @@ func cmdMicroblogGenrss() int {
         outputPath = conf.MicroblogRssFile
     }
 
-    // override the config paths with provided arguments
+    // if provided override the config paths with provided arguments as flags
+    // supersede the config file paths
     if len(c.Extras) >= 1 {
         htmlPath = c.Extras[0]
     } else if htmlPath == "" {
+        // if no entry in config file or not provided then error as parsing is
+        // required to generate RSS file
         fmt.Fprintf(os.Stderr, "[error] missing microblog html file\n")
         return 1
     }
     htmlPath = resolvePath(htmlPath)
 
+    // output path is optional, default behavior on unprovided output path is
+    // printing to stdout
     if len(c.Extras) == 2 {
         outputPath = c.Extras[1]
     }
     outputPath = resolvePath(outputPath)
-    // - signifies stdout
+    // '-' signifies stdout
     if outputPath == "-" {
+        // no provided output path produces the generated rss feed being
+        // printed to stdout
         outputPath = ""
     }
 
@@ -131,19 +157,21 @@ func cmdMicroblogGenrss() int {
     }
     defer f.Close()
 
-    // generate the final rss
+    // generate the final rss feed, returns a string containing feed
     s, err := microblog.GenRssFromFile(f)
     if err != nil {
         fmt.Fprintf(os.Stderr, "[error] failed to generate rss: %s\n", err)
         return 1
     }
 
+    // default behavior for missing output path is print to stdout
     if outputPath == "" {
-        // if no output file provided then output to cli
+        // print and exit with success
         fmt.Println(s)
         return 0
     }
 
+    // open or create the provided output path
     outputFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
     if err != nil {
         fmt.Fprintf(os.Stderr, "[error] failed to open output file: %s\n", err)
@@ -151,6 +179,7 @@ func cmdMicroblogGenrss() int {
     }
     defer outputFile.Close()
 
+    // write the string to the file
     _, err = outputFile.WriteString(s)
     if err != nil {
         fmt.Fprintf(os.Stderr, "[error] failed to write generated rss to output file: %s\n", err)
@@ -159,6 +188,9 @@ func cmdMicroblogGenrss() int {
     return 0
 }
 
+// Takes an absolute path and resolves it by replacing any `~` character at
+// the start of the path with the user's home directory. Safe to pass an empty
+// string to return an empty string. Returns the resolved path.
 func resolvePath(path string) string {
     if path[0] == '~' {
         home, err := os.UserHomeDir()
@@ -170,41 +202,54 @@ func resolvePath(path string) string {
     return path
 }
 
+// CLI and config are parsed before command branching.
 var c *cli.CLI
 var conf *config.Config
 func main() {
-    // parse cli
+    // parse cli using helper function which breaks cli args into commmand,
+    // subcommand, flags, and extra strings
+    //
+    // e.g. [command] [subcommand] [--flag] [extra] [extra] [extra]
     c = cli.Parse()
     if c == nil {
         fmt.Fprintf(os.Stderr, "[error] failed to parse command line arguments\n")
         return
     }
+    // print usage when missing a command or help provided
     if c.Command == "" || c.Command == "help" {
         printUsage()
         return
     }
 
+    // parsing the config file for command functions to utilize
+    // use the default config path unless -c / --config flag provided
     var configPath = defaultConfigPath
-    configFlag, ok := c.Flags["c"]
-    if ok {
+    // check both -c and --config flags when determining custom config file
+    // path
+    if configFlag, ok := c.Flags["c"]; ok {
         configPath = configFlag
-    } else {
-        configFlag, ok = c.Flags["config"]
-        if ok {
-            configPath = configFlag
-        }
+    } else if configFlag, ok = c.Flags["config"]; ok {
+        configPath = configFlag
     }
     configPath = resolvePath(configPath)
 
+    // open the config file path
     configFile, err := os.Open(configPath)
     if err != nil {
+        // config file failed to open
+
+        // if config FLAG, not configPath was provided then error...
         if configFlag != "" {
             fmt.Fprintf(os.Stderr, "[error] failed to open config file: %s\n", configPath)
             os.Exit(1)
             return
         }
-        // else ignore...
+        // ... else if no custom config was provided then config file does
+        // not exist and that is fine to ignore
     } else {
+        // config file open
+
+        // read and parse using helper function
         conf, err = config.ReadFile(configFile) 
         if err != nil {
             configFile.Close()
@@ -215,6 +260,7 @@ func main() {
         configFile.Close() 
     }
 
+    // command branching
     switch c.Command {
     case "microblog":
         if c.Subcommand == "" {
