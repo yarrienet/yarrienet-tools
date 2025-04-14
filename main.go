@@ -11,6 +11,7 @@ import (
 )
 
 const defaultConfigPath = "~/.config/yarrienet.conf"
+const defaultBaseUrl = "http://yarrie.net/microblog"
 
 const usageInformation string = `USAGE
   yarrienet <command> [<subcommand>] [-h | --help] [-c | --config <config>]
@@ -28,11 +29,12 @@ DESCRIPTION
   modified.
   
 COMMANDS
-  microblog new <microblog file> [-d | --date <yyyy-mm-ddThh-mm-ss>]
+  microblog new <microblog file> [-d | --date <YYYY-MM-DD-hh-mm-ss>]
     Insert an empty post into the microblog HTML source code in place.
 
-  microblog genrss <microblog file> <rss file> [<output file>] [--url <base url>] 
-    Generate an RSS feed using the microblog file.
+  microblog genrss <microblog file> [<output rss>] [--url <base url>] 
+    Generate an RSS feed using the microblog file. Omitting output or using '-' will print the
+    generated RSS feed to stdout.
 
   help
     Print usage information.`
@@ -42,9 +44,7 @@ func printUsage() {
 }
 
 //
-// TODO support - for stdin not just stdout
 // TODO finishing commenting other packages
-// TODO base url
 //
 
 // Microblog new item command. Insert the source code of a new microblog item
@@ -90,7 +90,8 @@ func cmdMicroblogNew() int {
         datetimeStr = v    
     }
     if datetimeStr != "" {
-        // YYYY-MM-DD-hh-mm-ss datetime, err = time.Parse("2006-01-02-15:04:05", datetimeStr)
+        // YYYY-MM-DD-hh:mm:ss
+        datetime, err = time.Parse("2006-01-02-15:04:05", datetimeStr)
         if err != nil {
             fmt.Fprintf(os.Stderr, "[error] invalid date provided: %s\n", err)
             return 1
@@ -157,6 +158,19 @@ func cmdMicroblogGenrss() int {
         outputPath = ""
     }
 
+
+    // get the baseurl
+    var baseUrl string = defaultBaseUrl
+    if baseUrlFlag, ok := c.Flags["url"]; ok {
+        baseUrl = baseUrlFlag
+    }
+    metadata := &microblog.RSSMetadata{
+        Title: "yarrie",
+        Author: "yarrie",
+        Description: "yarrie's microblog",
+        BaseUrl: baseUrl, 
+    }
+
     // open the html file
     f, err := os.Open(htmlPath)
     if err != nil {
@@ -166,7 +180,7 @@ func cmdMicroblogGenrss() int {
     defer f.Close()
 
     // generate the final rss feed, returns a string containing feed
-    s, err := microblog.GenRssFromFile(f)
+    s, err := microblog.GenRssFromFile(f, metadata)
     if err != nil {
         fmt.Fprintf(os.Stderr, "[error] failed to generate rss: %s\n", err)
         return 1
