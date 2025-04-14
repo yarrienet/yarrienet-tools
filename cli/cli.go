@@ -21,10 +21,15 @@ func Parse() *CLI {
     for i := 1; i < len(os.Args); i++ {
         a := os.Args[i]
         if a[0] == '-' && len(a) > 1 {
+            if flagAwaitingValue != "" {
+                flags[flagAwaitingValue] = ""
+            }
             if a[1] == '-' && len(a) > 2 {
                 flagAwaitingValue = a[2:]
-            } else {
+            } else if len(a[1:]) == 1 {
                 flagAwaitingValue = a[1:]
+            } else {
+                extras = append(extras, a)
             }
         } else if flagAwaitingValue != "" {
             flags[flagAwaitingValue] = a
@@ -36,6 +41,9 @@ func Parse() *CLI {
         } else {
             extras = append(extras, a)
         }
+    }
+    if flagAwaitingValue != "" {
+        flags[flagAwaitingValue] = ""
     }
 
     return &CLI{

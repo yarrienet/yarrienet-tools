@@ -13,16 +13,25 @@ import (
 const defaultConfigPath = "~/.config/yarrienet.conf"
 
 const usageInformation string = `USAGE
-  yarrienet [command] [subcommand]
+  yarrienet <command> [<subcommand>] [-h | --help] [-c | --config <config>]
 
 DESCRIPTION
-  Tool
-
+  These tools are built to achieve semantic publishing where writing occurs directly in the
+  webpage's HTML source and then all auto-generated elements are built against that. In practice a
+  single webpage containing each post can be used to produce the associated RSS feed without the
+  backing of an abstract file tree or database.
+  
+  HTML does not need to be abstracted to produce working RSS unlike other static site generators.
+  
+  The tool relies heavily on a set schema utilizing semantic elements and as such tools are
+  included to insert the HTML source of schema friendly elements directly into the webpage to be
+  modified.
+  
 COMMANDS
-  microblog new <microblog file> [-d / --date <yyyy-mm-ddThh-mm-ss>]
+  microblog new <microblog file> [-d | --date <yyyy-mm-ddThh-mm-ss>]
     Insert an empty post into the microblog HTML source code in place.
 
-  microblog genrss <microblog file> <rss file> [output file] [--url <base url>]
+  microblog genrss <microblog file> <rss file> [<output file>] [--url <base url>] 
     Generate an RSS feed using the microblog file.
 
   help
@@ -34,10 +43,8 @@ func printUsage() {
 
 //
 // TODO support - for stdin not just stdout
-// TODO should extraneous flags error like extras?
-// TODO update printUsage to mention -c config flag
-// TODO Update DESCRIPTION in printUsage
 // TODO finishing commenting other packages
+// TODO base url
 //
 
 // Microblog new item command. Insert the source code of a new microblog item
@@ -46,9 +53,10 @@ func printUsage() {
 func cmdMicroblogNew() int {
     // check if extra arguments were provided, and error
     if len(c.Extras) > 1 {
-        fmt.Fprintf(os.Stderr, "[error] unrecognized arguments provided\n")
+        fmt.Fprintf(os.Stderr, "[error] more than one argument provided\n")
         return 1
     }
+
     // determine html path using one defined in config file or extra flag
     // extra flag should supersede config file entry
     var htmlPath string
@@ -112,7 +120,7 @@ func cmdMicroblogNew() int {
 func cmdMicroblogGenrss() int {
     // check for extraneous extras
     if len(c.Extras) > 2 {
-        fmt.Fprintf(os.Stderr, "[error] unrecognized arguments provided\n")
+        fmt.Fprintf(os.Stderr, "[error] more than two arguments provided\n")
         return 1
     }
 
@@ -210,13 +218,19 @@ func main() {
     // subcommand, flags, and extra strings
     //
     // e.g. [command] [subcommand] [--flag] [extra] [extra] [extra]
+    //
+    // currently all erroring for extraneous arguments and flags are left to
+    // the command branches to handle. no extraneous flag checks are completed
+    // as there is no command logic beyond the switch statement below.
     c = cli.Parse()
     if c == nil {
         fmt.Fprintf(os.Stderr, "[error] failed to parse command line arguments\n")
         return
     }
-    // print usage when missing a command or help provided
-    if c.Command == "" || c.Command == "help" {
+    // print usage when missing a command or help argument/flag
+    _, hFlag := c.Flags["h"]
+    _, helpFlag := c.Flags["help"] 
+    if c.Command == "" || c.Command == "help" || (hFlag || helpFlag) {
         printUsage()
         return
     }
@@ -226,6 +240,7 @@ func main() {
     var configPath = defaultConfigPath
     // check both -c and --config flags when determining custom config file
     // path
+    var configFlag string
     if configFlag, ok := c.Flags["c"]; ok {
         configPath = configFlag
     } else if configFlag, ok = c.Flags["config"]; ok {
