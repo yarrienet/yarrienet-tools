@@ -52,7 +52,7 @@ func printUsage() {
 // and extras as part of the command. Returns a status code, success is 0.
 func cmdMicroblogNew() int {
     // check if extra arguments were provided, and error
-    if len(c.Extras) > 1 {
+    if len(c.Arguments) > 1 {
         fmt.Fprintf(os.Stderr, "[error] more than one argument provided\n")
         return 1
     }
@@ -64,8 +64,8 @@ func cmdMicroblogNew() int {
     if conf != nil {
         htmlPath = conf.MicroblogHtmlFile
     }
-    if len(c.Extras) == 1 {
-        htmlPath = c.Extras[0]
+    if len(c.Arguments) == 1 {
+        htmlPath = c.Arguments[0]
     } else if htmlPath == "" {
         fmt.Fprintf(os.Stderr, "[error] missing html path\n")
         return 1
@@ -97,7 +97,8 @@ func cmdMicroblogNew() int {
             return 1
         }
     } else {
-        // if date not provided then use current
+        // if date not provided then use current. has the side effect of a date
+        // flag with a missing value will just produce current date.
         datetime = time.Now()
     }
     // when parsing the date convert to current timezone to achieve +0100
@@ -120,7 +121,7 @@ func cmdMicroblogNew() int {
 // command. Returns a status code, success is 0.
 func cmdMicroblogGenrss() int {
     // check for extraneous extras
-    if len(c.Extras) > 2 {
+    if len(c.Arguments) > 2 {
         fmt.Fprintf(os.Stderr, "[error] more than two arguments provided\n")
         return 1
     }
@@ -135,8 +136,8 @@ func cmdMicroblogGenrss() int {
 
     // if provided override the config paths with provided arguments as flags
     // supersede the config file paths
-    if len(c.Extras) >= 1 {
-        htmlPath = c.Extras[0]
+    if len(c.Arguments) >= 1 {
+        htmlPath = c.Arguments[0]
     } else if htmlPath == "" {
         // if no entry in config file or not provided then error as parsing is
         // required to generate RSS file
@@ -147,8 +148,8 @@ func cmdMicroblogGenrss() int {
 
     // output path is optional, default behavior on unprovided output path is
     // printing to stdout
-    if len(c.Extras) == 2 {
-        outputPath = c.Extras[1]
+    if len(c.Arguments) == 2 {
+        outputPath = c.Arguments[1]
     }
     outputPath = resolvePath(outputPath)
     // '-' signifies stdout
@@ -158,11 +159,15 @@ func cmdMicroblogGenrss() int {
         outputPath = ""
     }
 
-
-    // get the baseurl
+    // get the base url
     var baseUrl string = defaultBaseUrl
     if baseUrlFlag, ok := c.Flags["url"]; ok {
-        baseUrl = baseUrlFlag
+        if len(baseUrlFlag) > 0 {
+            baseUrl = baseUrlFlag
+        } else {
+            fmt.Fprintf(os.Stderr, "[error] base url flag missing value\n")
+            return 1
+        }
     }
     metadata := &microblog.RSSMetadata{
         Title: "yarrie",
@@ -214,6 +219,9 @@ func cmdMicroblogGenrss() int {
 // the start of the path with the user's home directory. Safe to pass an empty
 // string to return an empty string. Returns the resolved path.
 func resolvePath(path string) string {
+    if len(path) == 0 {
+        return path
+    }
     if path[0] == '~' {
         home, err := os.UserHomeDir()
         if err != nil {
@@ -254,11 +262,17 @@ func main() {
     var configPath = defaultConfigPath
     // check both -c and --config flags when determining custom config file
     // path
-    var configFlag string
-    if configFlag, ok := c.Flags["c"]; ok {
-        configPath = configFlag
-    } else if configFlag, ok = c.Flags["config"]; ok {
-        configPath = configFlag
+    var configFlagUsed = false
+    var v string
+    if v, configFlagUsed = c.Flags["c"]; configFlagUsed {
+        configPath = v
+    } else if v, configFlagUsed = c.Flags["config"]; configFlagUsed {
+        configPath = v
+    }
+    // check if missing flag value for config path
+    if configFlagUsed && len(configPath) == 0 {
+        fmt.Fprintf(os.Stderr, "[error] config path flag missing value\n")
+        os.Exit(1)
     }
     configPath = resolvePath(configPath)
 
@@ -267,8 +281,7 @@ func main() {
     if err != nil {
         // config file failed to open
 
-        // if config FLAG, not configPath was provided then error...
-        if configFlag != "" {
+        if configFlagUsed {
             fmt.Fprintf(os.Stderr, "[error] failed to open config file: %s\n", configPath)
             os.Exit(1)
             return
