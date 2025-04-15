@@ -1,3 +1,4 @@
+// Package yarrienet is a command line tool for maintaining yarrie.net.
 package main
 
 import (

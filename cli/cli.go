@@ -1,3 +1,4 @@
+// Package cli provides helper functions for basic command line argument parsing.
 package cli
 
 import (
@@ -46,6 +47,17 @@ func Parse() *CLI {
     // loop each word (space separated)
     for i := 1; i < len(os.Args); i++ {
         a := os.Args[i]
+
+        // do not parse word if is empty, cannot a (sub)command or flag but can
+        // be an empty value to a flag
+        if len(a) <= 0 {
+            if flagAwaitingValue != "" {
+                flags[flagAwaitingValue] = ""
+                flagAwaitingValue = ""
+            }            
+            continue
+        }
+
         if a[0] == '-' && len(a) > 1 {
             // if word begins with a dash, most likely a flag
 
@@ -56,14 +68,28 @@ func Parse() *CLI {
             }
 
             if a[1] == '-' && len(a) > 2 {
-                // if first dash is followed by another, seek the value
-                // after flag
-                flagAwaitingValue = a[2:]
+                // determined most likely a long value (-- double dash)
+                flag := a[2:]
+                if flag[0] != '-' {
+                    // confirm that flag key does not begin with -
+                    flagAwaitingValue = flag
+                } else {
+                    // flag key does begin with -, should be added to arguments
+                    arguments = append(arguments, a)
+                }
             } else if len(a) > 1 {
-                // if only a single dash with characters following, loop each
-                // character after dash and add to map of present flags
-                for _, f := range a[1:] {
-                    flags[string(f)] = ""    
+                // determined to most likely be a short value (- single dash)
+                flag := a[1:]
+                if flag[0] != '-' {
+                    // confirm that flag key does not begin with -
+                    for _, f := range flag {
+                        // loop each letter in the short flag and add to the
+                        // flag map with an empty value
+                        flags[string(f)] = ""    
+                    }
+                } else {
+                    // flag key does begin with -, should be added to arguments
+                    arguments = append(arguments, a)
                 }
             } else {
                 // if no characters follow dash, then add to extra arguments.
@@ -71,7 +97,8 @@ func Parse() *CLI {
                 arguments = append(arguments, a)
             }
         } else if flagAwaitingValue != "" {
-            
+            // if a flag is awaiting its value from the previous iteration,
+            // set it and reset state
             flags[flagAwaitingValue] = a
             flagAwaitingValue = ""
         } else if command == "" {
