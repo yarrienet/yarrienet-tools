@@ -54,20 +54,20 @@ func parseValue(s string) (interface{}, error) {
     // used to build the new string
     var sb strings.Builder
 
-    for _, r := range s {
+    for i, r := range s {
         // loop over string, rune by rune
 
         if stringTerminated {
             // check and error if the string is terminated (final double quote
             // if encountered) yet characters still follow
-            return nil, fmt.Errorf("string terminated?")
+            return nil, fmt.Errorf("characters following string termination")
         }
     
         if r == '"' && !stringEscape {
             // double quote (and not escaped) is start or end of string
 
             // if buffer is not empty then string is terminated
-            if sb.Len() != 0 {
+            if i != 0 {
                 // string terminated
                 stringTerminated = true 
             }
@@ -79,8 +79,12 @@ func parseValue(s string) (interface{}, error) {
         } else {
             // write rune to the buffer
             sb.WriteRune(r)
+            stringEscape = false
         }
     } 
+    if !stringTerminated {
+        return nil, fmt.Errorf("string not terminated")
+    }
     return sb.String(), nil
 }
 
