@@ -139,7 +139,7 @@ func ReadFile(f *os.File) (*Config, error) {
 
     state := readStateKey
     // string buffer for writing key / value
-    line = 0
+    var line = 0
     var sb strings.Builder
     for {
         line++
