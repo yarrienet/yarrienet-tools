@@ -29,9 +29,29 @@ type Config struct {
     MicroblogRssFile string
 }
 
+// Represents the states that the string reader within parseValue uses.
+type stringState int
+const (
+    // String is uninitialized (not init with double quotes) and not suitable
+    // for content reading.
+    stringStateUninit stringState = iota
+    // String is initialized and is suitable for writing the contents to the
+    // buffer.
+    stringStateWrite
+    // String is escaped and the next reserved character (e.g. double quotes)
+    // should not be treated for their intended purpose.
+    stringStateEscape
+    // String is terminated (final double quotes have been encountered) and is
+    // no longer suitable for content reading.
+    stringStateTerminated
+)
+
 // Parse the raw string value from the config file to a native type. Supports
 // integers, booleans, and strings encapsulated in double quotes, e.g. "...".
 // Returns an interface of the parsed value on success, an error on failure.
+//
+// The string parser is permissive and ignores spaces surrounding the string,
+// e.g. '   "string content" ' will result in 'string content'.
 func parseValue(s string) (interface{}, error) {
     // try parse as int, if success then return
     if val, err := strconv.Atoi(s); err == nil {
@@ -44,46 +64,62 @@ func parseValue(s string) (interface{}, error) {
 
     // not integer to boolean, begin string parsing
 
-    // is string terminated, was the final double quote encountered
-    // representing string end. used to error if content found after string
-    // has ended.
-    var stringTerminated = false
-    // track if parser should escape a character for one byte
-    var stringEscape = false
+    var state = stringStateUninit
 
     // used to build the new string
     var sb strings.Builder
 
-    for i, r := range s {
+    for _, r := range s {
         // loop over string, rune by rune
 
-        if stringTerminated {
-            // check and error if the string is terminated (final double quote
-            // if encountered) yet characters still follow
-            return nil, fmt.Errorf("characters following string termination")
-        }
-    
-        if r == '"' && !stringEscape {
-            // double quote (and not escaped) is start or end of string
-
-            // if buffer is not empty then string is terminated
-            if i != 0 {
-                // string terminated
-                stringTerminated = true 
+        switch state {
+        case stringStateUninit:
+            // has not encountered the start of the string (a double quote).
+            if r == '"' {
+                // double quote means the beginning of the string
+                state = stringStateWrite
+            } else if r != ' ' {
+                // error when encountering a character outside of a string,
+                // expect a space which the parser allows e.g.
+                // '    "string content"  ' will become 'string content'.
+                return nil, fmt.Errorf("character '%c' encountered outside of string", r)
             }
-            // first quote can be ignored at the start of the string (buffer is
-            // empty)
-        } else if r == '\\' {
-            // on backslash then escape following rune
-            stringEscape = true
-        } else {
-            // write rune to the buffer
+        case stringStateWrite:
+            // write state allows for string content to be written into the
+            // buffer
+            if r == '\\' {
+                // if encountering escape character then switch state to allow
+                // for it
+                state = stringStateEscape
+            } else if r == '"' {
+                // an (unescaped) double quote denotes the end of the string
+                state = stringStateTerminated
+            } else {
+                // else just write
+                sb.WriteRune(r)
+            }
+        case stringStateEscape:
+            // write the escaped character and back out
             sb.WriteRune(r)
-            stringEscape = false
+            state = stringStateWrite
+        case stringStateTerminated:
+            // don't allow for any characters following an escaped string
+            // excluding space characters
+            if r != ' ' {
+                return nil, fmt.Errorf("character '%c' encountered after string", r)
+            }
         }
     } 
-    if !stringTerminated {
-        return nil, fmt.Errorf("string not terminated")
+
+    if state != stringStateTerminated {
+        // if loop ended without the string terminated, something is wrong with
+        // the given string, tailor the error message depending on error
+        if sb.Len() > 0 {
+            return nil, fmt.Errorf("string not terminated")
+        } else {
+            // it's possible to find no string
+            return nil, fmt.Errorf("no string encountered")
+        }
     }
     return sb.String(), nil
 }

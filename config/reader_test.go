@@ -45,6 +45,7 @@ func TestStringParseValue(t *testing.T) {
         `""`: "",
         `"\""`: `"`,
         `"a\"a"`: `a"a`,
+        `    "test content" `: "test content",
     }
     for input, expected := range valid {
         val, err := parseValue(input)
@@ -62,7 +63,7 @@ func TestStringParseValue(t *testing.T) {
     }
 
     // invalid strings, all should error
-    var invalid = []string{ `"incomplete`, "no quotes", `q\"uotes`, `"`, `"""` }
+    var invalid = []string{ `"incomplete`, `incomplete2"`, `no quotes`, `q\"uotes`, `"`, `"""`, "", "   "}
     for _, input := range invalid {
         val, err := parseValue(input)
         if err == nil {
