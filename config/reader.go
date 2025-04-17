@@ -153,7 +153,7 @@ func updateConfig(config *Config, key string, value string) error {
         }
     default:
         // invalid key is provided
-        fmt.Errorf("'%s' is not a valid key", key)
+        return fmt.Errorf("'%s' is not a valid key", key)
     }
     return nil
 }

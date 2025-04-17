@@ -4,6 +4,7 @@ import (
     "testing"
 )
 
+// Test parsing valid integer and boolean values with parseValue.
 func TestValidParseValue(t *testing.T) {
     // testing integer
     var input = "45"
@@ -36,6 +37,7 @@ func TestValidParseValue(t *testing.T) {
     }
 }
 
+// Test parsing valid and invalid string values with parseValue.
 func TestStringParseValue(t *testing.T) {
     // valid string
     var valid = map[string]string{
@@ -46,6 +48,7 @@ func TestStringParseValue(t *testing.T) {
         `"\""`: `"`,
         `"a\"a"`: `a"a`,
         `    "test content" `: "test content",
+        `"64"`: "64",
     }
     for input, expected := range valid {
         val, err := parseValue(input)
@@ -73,5 +76,59 @@ func TestStringParseValue(t *testing.T) {
             t.Errorf("invalid string '%s' results in val '%v'", input, val)
         }
     } 
+}
+
+// Test updating the parsed config structure with valid and invalid keys and
+// values with updateConfig.
+func TestUpdateConfig(t *testing.T) {
+    var config = Config{}
+
+    // testing value change of microblog_html_file
+    key, value, expected := "microblog_html_file", `"path"`, "path"
+    err := updateConfig(&config, key, value)
+    if err != nil {
+        t.Errorf("updating config key '%s' resulted in an error: %s", key, err)
+    } else {
+        if config.MicroblogHtmlFile != expected {
+            t.Errorf("failed to update config '%s' (config.MicroblogHtmlFile), expected '%s' not '%s'", key, expected, config.MicroblogHtmlFile)
+        }
+    }
+
+    // testing value change of microblog_rss_file
+    key, value, expected = "microblog_rss_file", `"path2"`, "path2"
+    err = updateConfig(&config, key, value)
+    if err != nil {
+        t.Errorf("updating config key '%s' resulted in an error: %s", key, err)
+    } else {
+        if config.MicroblogRssFile != expected {
+            t.Errorf("failed to update config '%s' (config.MicroblogRssFile), expected '%s' not '%s'", key, expected, config.MicroblogRssFile)
+        }
+    }
+
+    // invalid key
+    key, value = "microblog_invalid_file", `"x"`
+    err = updateConfig(&config, key, value)
+    if err == nil {
+        t.Errorf("updating invalid config key '%s' should result in error", key)
+    }
+
+    // invalid type for key (45 will be parsed as a integer, as per parseValue)
+    key, value = "microblog_html_file", "45"
+    err = updateConfig(&config, key, value)
+    if err == nil {
+        t.Errorf("updating config key '%s' with integer '%s' should result in an error", key, value)
+    }
+
+    // invalid string, testing pass through to parseValue
+    key, value = "microblog_html_file", `"value`
+    err = updateConfig(&config, key, value)
+    if err == nil {
+        t.Errorf("updating config key '%s' with invalid string '%s' should result in an error", key, value)
+    }
+}
+
+// Write
+func configFileHelper() {
+
 }
 
