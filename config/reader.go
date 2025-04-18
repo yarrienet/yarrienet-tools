@@ -179,10 +179,9 @@ func ReadFile(f *os.File) (*Config, error) {
 
     state := readStateKey
     // string buffer for writing key / value
-    var line = 0
+    var line = 1
     var sb strings.Builder
     for {
-        line++
         // read each character (rune) in each iteration
         r, _, err := r.ReadRune()
         if err == io.EOF {
@@ -202,6 +201,7 @@ func ReadFile(f *os.File) (*Config, error) {
         } else if r == '\n' && lineComment {
             // line comment ends when a new line is found
             lineComment = false
+            line++
             continue
         } else if lineComment {
             // line comment active and not a new line should be ignored
@@ -249,7 +249,7 @@ func ReadFile(f *os.File) (*Config, error) {
                 // parse key value and update config
                 err = updateConfig(config, key, value)
                 if err != nil {
-                    return nil, err
+                    return nil, fmt.Errorf("%s (line %d)", err, line)
                 }
 
                 // reset state
@@ -260,6 +260,10 @@ func ReadFile(f *os.File) (*Config, error) {
                 sb.WriteRune(r)
             } 
         }
+        // increment line number
+        if r == '\n' {
+            line++
+        }
     }
     // handling lines which aren't terminated by a new line
     if state == readStateValue {
@@ -268,7 +272,7 @@ func ReadFile(f *os.File) (*Config, error) {
         // update the config
         err := updateConfig(config, key, value)
         if err != nil {
-            return nil, err
+            return nil, fmt.Errorf("%s (line %d)", err, line)
         }
     }
     return config, nil

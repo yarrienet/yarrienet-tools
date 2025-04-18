@@ -4,6 +4,8 @@ import (
     "testing"
     "fmt"
     "os"
+    "regexp"
+    "strings"
 )
 
 // Test parsing valid integer and boolean values with parseValue.
@@ -140,11 +142,30 @@ func openTempConfigFile() (*os.File, error) {
     return f, nil
 }
 
+// Determine the line number from ReadFile error messages. Returns a string
+// containing the line number on success, an empty string when extraction
+// fails.
+func determineLineNumber(err string) string {
+    // regex to extract the line number
+    lineRe := regexp.MustCompile(`line (\d+)`)
+    matches := lineRe.FindStringSubmatch(err)
+    // matches is the structure of [ fullString, matchedSubstring ]
+    if len(matches) > 1 {
+        return matches[1]
+    } else {
+        return ""
+    }
+}
+
+// Test the main function that parses the config file and returns a config
+// structure containing user options. Tests both the config structure and the
+// errors returned.
 func TestConfigFileHelper(t *testing.T) {
-    // test if a valid config file succeeds
+    // test if a valid config file succeeds (without a terminating new line)
     var expectedHtmlFile = "~/yarrie.net/microblog/index.html"
     var expectedRssFile = "~/yarrie.net/microblog/feed.xml"
-    var validConfig = fmt.Sprintf(`microblog_html_file "%s"
+    var configString = fmt.Sprintf(`microblog_html_file "%s"
+# test comment
 microblog_rss_file "%s"`, expectedHtmlFile, expectedRssFile)
 
     var validFile, err = openTempConfigFile()
@@ -153,12 +174,12 @@ microblog_rss_file "%s"`, expectedHtmlFile, expectedRssFile)
     }
     defer validFile.Close()
 
-    validFile.WriteString(validConfig)
+    validFile.WriteString(configString)
     validFile.Seek(0, 0)
 
     conf, err := ReadFile(validFile)
     if err != nil {
-        t.Fatalf("failed to read config file: %s", err)
+        t.Fatalf("failed to parse config file: %s", err)
     }
 
     if conf.MicroblogHtmlFile != expectedHtmlFile {
@@ -166,6 +187,95 @@ microblog_rss_file "%s"`, expectedHtmlFile, expectedRssFile)
     }
     if conf.MicroblogRssFile != expectedRssFile {
         t.Errorf("expected MicroblogRssFile to be '%s' not '%s'", expectedRssFile, conf.MicroblogRssFile)
+    }
+
+    // testing if mangled spaces work
+    configString = fmt.Sprintf(`# comment 1
+microblog_html_file    "%s"     
+
+# comment 2
+
+`, expectedHtmlFile)
+    validMangledFile, err := openTempConfigFile() 
+    if err != nil {
+        t.Fatalf("failed to open temp config file: %s", err)
+    }
+    defer validMangledFile.Close()
+
+    validMangledFile.WriteString(configString)
+    validMangledFile.Seek(0, 0)
+
+    conf, err = ReadFile(validMangledFile)
+    if err != nil {
+        t.Fatalf("failed to parse config file: %s", err)
+    }
+
+    if conf.MicroblogHtmlFile != expectedHtmlFile {
+        t.Errorf("expected mangled MicroblogHtmlFile to be '%s' not '%s'", expectedHtmlFile, conf.MicroblogHtmlFile)
+    }
+    if conf.MicroblogRssFile != "" {
+        t.Errorf("expected MicroblogRssFile to be empty not '%s'", conf.MicroblogRssFile)
+    }
+
+    // testing if error reporting is valid
+    configString = "microblog_html_file 10"
+    invalidFile1, err := openTempConfigFile()
+    if err != nil {
+        t.Fatalf("failed to open temp config file")
+    }
+    defer invalidFile1.Close()
+
+    invalidFile1.WriteString(configString)
+    invalidFile1.Seek(0, 0)
+
+    conf, err = ReadFile(invalidFile1)
+    if err != nil {
+        // extract line number
+        errStr := err.Error()
+        lineNumber := determineLineNumber(errStr)
+        if lineNumber == "" {
+            t.Errorf("missing '(line x)' from error: %s", err)
+        } else if lineNumber != "1" {
+            t.Errorf("expecting error containing line number 1 not %s", lineNumber)
+        }
+
+        // check if error is valid
+        if !strings.Contains(errStr, "'microblog_html_file' expects a string") {
+            t.Errorf("incorrect error for providing an integer to a string: %s", errStr)
+        }
+    } else {
+        t.Errorf("expected error for invalid config file 'invalidFile1'")
+    }
+
+    // testing if line number reporting is valid on error
+    // error occurs in configString on line 6
+    configString = `
+
+
+# comment
+
+microblog_html_file 10`
+
+    invalidFile2, err := openTempConfigFile()
+    if err != nil {
+        t.Fatalf("failed to open temp config file")
+    }
+    defer invalidFile2.Close()
+
+    invalidFile2.WriteString(configString)
+    invalidFile2.Seek(0, 0)
+
+    conf, err = ReadFile(invalidFile2)
+    if err != nil {
+        errStr := err.Error()
+        lineNumber := determineLineNumber(errStr)
+        if lineNumber == "" {
+            t.Errorf("missing '(line x)' from error: %s", err)
+        } else if lineNumber != "6" {
+            t.Errorf("expecting error containing line number 6 not %s", lineNumber)
+        }
+    } else {
+        t.Errorf("expected error for invalid config file 'invalidFile2'")
     }
 }
 
