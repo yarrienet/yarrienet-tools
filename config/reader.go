@@ -261,6 +261,16 @@ func ReadFile(f *os.File) (*Config, error) {
             } 
         }
     }
+    // handling lines which aren't terminated by a new line
+    if state == readStateValue {
+        // write the value from the buffer
+        value = sb.String()
+        // update the config
+        err := updateConfig(config, key, value)
+        if err != nil {
+            return nil, err
+        }
+    }
     return config, nil
 }
 

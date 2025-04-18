@@ -2,6 +2,8 @@ package config
 
 import (
     "testing"
+    "fmt"
+    "os"
 )
 
 // Test parsing valid integer and boolean values with parseValue.
@@ -127,8 +129,43 @@ func TestUpdateConfig(t *testing.T) {
     }
 }
 
-// Write
-func configFileHelper() {
+// Create and open a config file of a random name in the operating system's
+// temporary directory. Uses the pattern 'yarrienet-tools-test[rand].conf'.
+// Returns file on success, error on failure.
+func openTempConfigFile() (*os.File, error) {
+    var f, err = os.CreateTemp("", "yarrienet-tools-test*.conf")
+    if err != nil {
+        return nil, err
+    }
+    return f, nil
+}
 
+func TestConfigFileHelper(t *testing.T) {
+    // test if a valid config file succeeds
+    var expectedHtmlFile = "~/yarrie.net/microblog/index.html"
+    var expectedRssFile = "~/yarrie.net/microblog/feed.xml"
+    var validConfig = fmt.Sprintf(`microblog_html_file "%s"
+microblog_rss_file "%s"`, expectedHtmlFile, expectedRssFile)
+
+    var validFile, err = openTempConfigFile()
+    if err != nil {
+        t.Fatalf("failed to open temp testing config file: %s", err)
+    }
+    defer validFile.Close()
+
+    validFile.WriteString(validConfig)
+    validFile.Seek(0, 0)
+
+    conf, err := ReadFile(validFile)
+    if err != nil {
+        t.Fatalf("failed to read config file: %s", err)
+    }
+
+    if conf.MicroblogHtmlFile != expectedHtmlFile {
+        t.Errorf("expected MicroblogHtmlFile to be '%s' not '%s'", expectedHtmlFile, conf.MicroblogHtmlFile)
+    }
+    if conf.MicroblogRssFile != expectedRssFile {
+        t.Errorf("expected MicroblogRssFile to be '%s' not '%s'", expectedRssFile, conf.MicroblogRssFile)
+    }
 }
 
